@@ -1,0 +1,474 @@
+/*----------------------------------------------------------------------------*/
+/* Copyright (c) FIRST 2008. All Rights Reserved.                             */
+/* Open Source Software - may be modified and shared by FRC teams. The code   */
+/* must be accompanied by the FIRST BSD license file in the root directory of */
+/* the project.                                                               */
+/*----------------------------------------------------------------------------*/
+/* Written by Andrew Zavala                                                   */
+/* Huehuehue                                                                  */        
+/* (c) 2014                                                                   */
+/*----------------------------------------------------------------------------*/
+package edu.wpi.first.wpilibj.templates;
+
+import edu.wpi.first.wpilibj.*;
+
+// import Java.Swag.*;
+// import Java.FRC.Champs.St.Louis.*;
+// import Java.Travus Cubington.#QualiteeeAward.*;
+// import Java.Ejshuffle.BeeJshuffle.*;
+
+
+public class Voltage extends IterativeRobot {
+
+    private RobotDrive Drive;
+    private Solenoid LowGear, HighGear, IntakeUp, IntakeDown, shooterLatch, shooterUnlatch, winchLock, winchUnlock;
+    private Joystick Controller, Controller2;
+    private Compressor Compressor;
+    private SpeedController FrontLeft, FrontRight, BackLeft, BackRight, pivotArm, Shooter1, Shooter2, Intake;
+    private DigitalInput Pivot, BtmShooterSwitch;
+    private AnalogChannel potVal;
+    private Timer shootTimer;
+    private Timer bottomTimer;
+    private Timer teleTimer;
+    private final DriverStationLCD lcd = DriverStationLCD.getInstance();
+    private boolean hasShifted;
+    private boolean isBottom;
+    private boolean isReset;
+    private boolean isFired;
+    private boolean isPressure;
+    private boolean isIntakeUp;
+    private boolean isLatched;
+    private boolean stopShooter;
+    private boolean stopPreset;
+    private boolean Adeg;
+    private boolean Bdeg;
+    private boolean Xdeg;
+    private boolean Ydeg;
+    private boolean bottomDeg;
+    private boolean fireTimer;
+    private boolean timerCycle;
+    private double autoTimeStart;
+    private double startDelay;
+    private double endDelay;
+    private double ShooterSpeed;
+    private double PivotArmSpeed;
+    private double IntakeSpeed;
+    private double angleThreshold;
+    private double currentAngle;
+    private int ShortShot;
+
+    public void robotInit() {
+        ControllerInit();
+        TalonInit();
+        RobotDriveInit();
+        CompressorInit();
+        autonomousInit();
+        IntakeInit();
+        SensorInit();
+        ShooterStuffInit();
+        hasShifted = false;
+        isIntakeUp = false;
+        isLatched = false;
+        isFired = false;
+        isBottom = false;
+        isReset = true;
+        isPressure = false;
+        stopShooter = false;
+        timerCycle = true;
+        shootTimer = new Timer();
+        bottomTimer = new Timer();
+        teleTimer = new Timer();
+        Adeg = false;
+        Bdeg = false;
+        Xdeg = false;
+        Ydeg = false;
+        bottomDeg = false;
+        currentAngle = 0;
+        angleThreshold = .05;
+        autoTimeStart = 0;
+        ShooterSpeed = 1;
+        PivotArmSpeed = 1;
+        IntakeSpeed = .75;
+        ShortShot = 10;
+        shootTimer.stop();
+        bottomTimer.stop();
+        teleTimer.stop();
+           
+        shootTimer.reset();
+        bottomTimer.reset();
+        teleTimer.reset();
+
+    }
+
+    public void RobotDriveInit() {
+        Drive = new RobotDrive(FrontLeft, FrontRight, BackLeft, BackRight);
+    }
+
+    public void ShooterStuffInit() {
+        winchLock = new Solenoid(1);
+        winchUnlock = new Solenoid(2);
+        shooterLatch = new Solenoid(3);
+        shooterUnlatch = new Solenoid(4);
+
+    }
+
+    public void SensorInit() {
+        Pivot = new DigitalInput(2);// Digital I/O
+        BtmShooterSwitch = new DigitalInput(3);
+        potVal = new AnalogChannel(4);
+    }
+
+    public void CompressorInit() {
+        Compressor = new Compressor(1, 1);// Digital I/O, Relay
+        LowGear = new Solenoid(8);
+        HighGear = new Solenoid(7);
+    }
+
+    public void IntakeInit() {
+        IntakeUp = new Solenoid(6);
+        IntakeDown = new Solenoid(5);
+
+    }
+
+    public void ControllerInit() {
+        Controller = new Joystick(1);
+        Controller2 = new Joystick(2);
+    }
+
+    public void TalonInit() {
+        FrontLeft = new Talon(1);
+        FrontRight = new Talon(2);
+        BackLeft = new Talon(3);
+        BackRight = new Talon(4);
+        pivotArm = new Talon(5);
+        Intake = new Talon(6);
+        Shooter1 = new Talon(7);
+        Shooter2 = new Talon(8);
+
+       
+    }
+
+
+
+    
+    public void autonomousInit() {
+        autoTimeStart = Timer.getFPGATimestamp();
+        startDelay = 0;
+        endDelay = 0;
+
+    }
+
+    public void autonomousPeriodic() {
+        double autoTimeCurr = Timer.getFPGATimestamp() - autoTimeStart;
+
+        if (autoTimeCurr <= 0.3) {
+            Intake.set(-1);
+        }
+        else if (autoTimeCurr <= 2.42){
+            FrontLeft.set(.5);
+            BackRight.set(-.43);
+            FrontRight.set(.5);
+            BackLeft.set(-.43);
+                  }
+        else if (autoTimeCurr <= 2.55) {
+            FrontLeft.set(0);
+            BackRight.set(0);
+            FrontRight.set(0);
+            BackLeft.set(0);
+            Intake.set(0);
+                  }
+        else if (autoTimeCurr <= 2.8) {
+                  }
+          else if (autoTimeCurr <= 3.9) {
+            currentAngle = 2.07000001;
+            potVal.getVoltage();
+            PivotArmSpeed = .3;
+            PresetAngle();
+                  }
+         else if (autoTimeCurr <= 3.95) {
+            pivotArm.set(0);
+        } 
+          else if (autoTimeCurr <= 4.15) {
+                    }
+         else if (autoTimeCurr <= 4.5) {
+            IntakeDown.set(false);
+            IntakeUp.set(true);
+            isIntakeUp = true;
+         }
+         else if (autoTimeCurr <= 4.9) {
+                 }
+         else if (autoTimeCurr <= 5.4) {
+            shooterLatch.set(false);
+            shooterUnlatch.set(true);
+            winchLock.set(false);
+            winchUnlock.set(true);
+        } else if (autoTimeCurr <= 5.9) {
+        } else if (autoTimeCurr <= 6.0) {
+         
+    }
+    }
+
+    public void disabledInit() {
+    }
+
+    public void disabledPeriodic() {
+    }
+
+    public void Fire() {
+        IntakeDown.set(false);
+        IntakeUp.set(true);
+        isIntakeUp = true;
+       }
+        
+
+    
+
+    public void BottomReset() {
+        if (!isReset) {
+            if (!isBottom && BtmShooterSwitch.get()) {
+                IntakeUp.set(true);
+                IntakeDown.set(false);
+                winchLock.set(true);
+                winchUnlock.set(false);
+                
+               
+                Shooter1.set(-ShooterSpeed);
+                Shooter2.set(-ShooterSpeed);
+            } else if (!BtmShooterSwitch.get()) {
+                shooterLatch.set(true);
+                shooterUnlatch.set(false);
+                Timer.delay(.05);
+                Shooter1.set(0);
+                Shooter2.set(0);
+               
+                //Timer.delay(0.5);
+                
+                isBottom = true; 
+                isReset = true;
+                isLatched = true;
+                isFired = false;
+                IntakeUp.set(false);
+                IntakeDown.set(true);
+            }
+        }
+    }
+    
+    public void PresetAngle(){
+          if (potVal.getVoltage() < (currentAngle - angleThreshold)) {
+                pivotArm.set(-PivotArmSpeed);
+            } else if (potVal.getVoltage() > (currentAngle + angleThreshold)) {
+                pivotArm.set(PivotArmSpeed);
+            } else {
+                pivotArm.set(0);
+                Adeg = false;
+                Bdeg = false;
+                Xdeg = false;
+                Ydeg = false;
+                bottomDeg = false;
+            }
+    }
+    public void timerState(){
+       if(BtmShooterSwitch.get() && timerCycle)
+       {
+           shootTimer.stop();
+           bottomTimer.stop();
+           teleTimer.stop();
+           
+           shootTimer.reset();
+           bottomTimer.reset();
+           teleTimer.reset();
+           timerCycle = false;
+       }
+       if(!timerCycle && Controller.getRawAxis(3) < -0.9){
+           shootTimer.start();
+       
+       }
+       if(BtmShooterSwitch.get() && !isReset)
+       {
+           timerCycle = true;
+       }
+       if(shootTimer.get() > 0.25)
+       {
+        shooterLatch.set(false);
+        shooterUnlatch.set(true);
+        winchUnlock.set(true);
+        winchLock.set(false);
+       }
+        if(shootTimer.get() > 1.25)
+       {
+        isLatched = false;
+        isBottom = false;
+        isReset = false;
+        isFired = true;
+        teleTimer.start();
+       }
+        if(teleTimer.get() > 0.75)
+        {
+            BottomReset();
+            bottomTimer.start();
+        }
+       
+        if(bottomTimer.get() > 0.5)
+         {
+          
+         isBottom = true;
+         isReset = true;
+         isLatched = true;
+         isFired = false;
+         IntakeUp.set(false);
+         IntakeDown.set(true);
+          
+          }
+       
+    }
+    
+    public void teleopInit(){
+        }
+    
+
+    public void teleopPeriodic() {
+
+        lcd.println(DriverStationLCD.Line.kUser2, 1, "Bottom" + BtmShooterSwitch.get());
+        lcd.updateLCD();
+        lcd.println(DriverStationLCD.Line.kUser3, 1, "LinearPot: " + potVal.getAverageVoltage());
+        lcd.updateLCD();
+        lcd.println(DriverStationLCD.Line.kUser5, 1, "Pivot " + Pivot.get());
+        lcd.updateLCD();
+        timerState();
+        
+        //Drive
+        Drive.arcadeDrive(getDeadZone(-Controller.getY(), 0.25),
+                getDeadZone(-Controller.getThrottle(), 0.25), true);
+
+        // Compressor
+        if (!Compressor.getPressureSwitchValue()) {
+            Compressor.start();
+            lcd.println(DriverStationLCD.Line.kUser1, 1, "Compressor: ON ");
+        } else if (Compressor.getPressureSwitchValue()) {
+            Compressor.stop();
+            lcd.println(DriverStationLCD.Line.kUser1, 1, "Compressor: OFF");
+        }
+
+        // Shifter
+        if (Controller.getRawButton(6) && !hasShifted) {
+            HighGear.set(true);
+            Timer.delay(0.1);
+            LowGear.set(false);
+            hasShifted = true;
+            lcd.println(DriverStationLCD.Line.kUser4, 1, "Speed: High");
+            lcd.updateLCD();
+        } else if (Controller.getRawButton(5) && hasShifted) {
+            LowGear.set(true);
+            Timer.delay(0.1);
+            HighGear.set(false);
+            hasShifted = false;
+            lcd.println(DriverStationLCD.Line.kUser4, 1, "Speed: Low ");
+            lcd.updateLCD();
+        }
+
+        //Intake
+        if (Controller2.getRawButton(1)) {
+            Intake.set(-1);
+        } else if (Controller2.getRawButton(4)) {
+            Intake.set(1);
+        } else if (Controller2.getRawButton(2)) {
+            Intake.set(0);
+        }
+        //IntakePiston
+
+        if (Controller2.getRawButton(6)) {
+            IntakeUp.set(false);
+            IntakeDown.set(true);
+        }
+        if (Controller2.getRawButton(5)) {
+            IntakeDown.set(false);
+            IntakeUp.set(true);
+        }
+        //pivotArm
+        if (Controller2.getRawAxis(3) > 0.9) {
+            Adeg = false;
+             PivotArmSpeed = 1;
+            pivotArm.set(PivotArmSpeed);
+        } else if (Controller2.getRawAxis(3) < -0.9) {
+            Adeg = false;
+            PivotArmSpeed = 1;
+            pivotArm.set(-PivotArmSpeed);
+
+        } else {
+            pivotArm.set(0);
+        }
+
+        //AutoShot
+        if (Controller.getRawAxis(3) < -0.9) {
+            timerState();
+            Fire();
+            //Timer.delay(0.5);
+        } else {
+
+            if (!isReset) {
+                BottomReset();
+
+            }
+        }
+
+        // presetAngles
+        if (Controller.getRawButton(4) || Ydeg) {
+            pivotArm.set(1);
+            Ydeg = true;
+        }
+            if (!Pivot.get() && Ydeg )
+            {
+                pivotArm.set(0);
+                Ydeg = false;
+        }
+        if (Controller.getRawButton(2) || Bdeg) {
+            currentAngle = 1.711000001;
+            Bdeg = true;
+            potVal.getVoltage();
+            PivotArmSpeed = .4;
+            PresetAngle();
+            
+        }
+        if (Controller.getRawButton(1) || Adeg) {
+            currentAngle = 2.07000001;
+            Adeg = true;
+            potVal.getVoltage();
+            PivotArmSpeed = .4;
+            PresetAngle();
+        }
+        if (Controller.getRawButton(3) || Xdeg) {
+            currentAngle = 2.30000001;
+            Xdeg = true;
+            potVal.getVoltage();
+            PivotArmSpeed = .4;
+            PresetAngle();
+        }
+        if (Controller2.getRawButton(3) || bottomDeg) {
+            currentAngle = 3.852;
+            bottomDeg = true;
+            potVal.getVoltage();
+            PivotArmSpeed = 1;
+            PresetAngle();
+        }
+    }
+
+    private double getDeadZone(double num, double dead) {
+        if (num < 0) {
+            if (num < dead) {
+                return num;
+            } else {
+                return 0;
+            }
+        } else {
+            if (num > dead) {
+                return num;
+            } else {
+                return 0;
+            }
+        }
+    }
+
+    public void testPeriodic() {
+
+    }
+}
